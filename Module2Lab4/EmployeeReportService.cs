@@ -1,20 +1,20 @@
-﻿using System;
-using System.Windows.Forms;
+using System;
 
 namespace Module2Lab4
 {
     public class EmployeeReportService
     {
-        private String Report = "";
+        private string Report = "";
 
-        public void AddData(String data)
+        public void AddData(string data)
         {
             Report += data;
         }
 
         public void OutPutReport()
         {
-            Console.WriteLine(Report,"Employee Report Service");
+            // Write the report to console rather than trying to display a modal dialog.
+            Console.WriteLine("Employee Report Service: " + Report);
         }
 
         public void ClearReport()
