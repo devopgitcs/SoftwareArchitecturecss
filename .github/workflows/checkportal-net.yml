@@ -1,4 +1,4 @@
-name: Deploy .NET 4.7.2 Console App as a WebJob (OIDC)
+name: Deploy .NET 4.7.2 Console App as a Continuous WebJob (OIDC)
 
 env:
   AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -35,7 +35,7 @@ jobs:
           }
         shell: pwsh
 
-  # 2) Build and package the .NET 4.7.2 console app
+  # 2) Build and package the .NET 4.7.2 console app as a WebJob
   build:
     runs-on: windows-latest
     needs: check-secrets
@@ -50,54 +50,56 @@ jobs:
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v1
 
-      # Restore NuGet packages for the solution
+      # Restore NuGet packages
       - name: Restore dependencies
         run: nuget restore SoftwareArchitectureConsoleAppNet_4_7_2.sln
 
-      # Build the solution using MSBuild (outputs will be in each project's default output folder)
+      # Build the solution in Release mode
       - name: Build solution
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
-      # Create a folder structure for a continuous WebJob:
-      #   app_data/jobs/continuous/MyConsoleJob
-      # Then copy your console app's release output into that folder.
+      # Prepare the folder structure for the WebJob.
+      # This step creates a folder "app_data/jobs/continuous/MyConsoleJob" and copies the console app's Release output into it.
       - name: Prepare WebJob folder structure
         shell: pwsh
         run: |
-          # Remove any old folder if it exists
+          # Remove any old app_data folder if it exists.
           if (Test-Path -Path ".\app_data") {
             Remove-Item -Path ".\app_data" -Recurse -Force
           }
-
           # Create the continuous WebJob folder
-          New-Item -ItemType Directory -Force -Path app_data\jobs\continuous\MyConsoleJob
+          New-Item -ItemType Directory -Force -Path "app_data\jobs\continuous\MyConsoleJob"
 
-          # Locate your console app .exe in the Release folder
-          $exePath = Get-ChildItem -Path . -Recurse -Filter "*.exe" | Where-Object { $_.FullName -match "Release" } | Select-Object -First 1
-          if ($null -eq $exePath) {
-            Write-Error "Could not find any .exe in a Release folder."
+          # Set the source folder (adjust this path if needed)
+          $sourcePath = ".\SoftwareArchitectureConsoleAppNet_4_7_2\bin\Release\"
+          if (-Not (Test-Path $sourcePath)) {
+            Write-Error "Source path $sourcePath not found."
             exit 1
-          } else {
-            $outputFolder = Split-Path $exePath.FullName -Parent
-            Write-Host "Found console app folder: $outputFolder"
-            # Copy everything from that folder into the WebJob folder
-            Copy-Item -Path "$outputFolder\*" -Destination ".\app_data\jobs\continuous\MyConsoleJob" -Recurse -Force
           }
+          Write-Host "Copying files from $sourcePath to app_data\jobs\continuous\MyConsoleJob"
+          Copy-Item -Path "$sourcePath*" -Destination "app_data\jobs\continuous\MyConsoleJob" -Recurse -Force
 
-      # Zip the entire site folder (which now contains app_data/jobs/...)
-      - name: Archive for WebJobs deployment
+          # Debug: List the folder structure of the WebJob folder
+          Write-Host "Contents of app_data\jobs\continuous\MyConsoleJob:"
+          Get-ChildItem -Path "app_data\jobs\continuous\MyConsoleJob" -Recurse
+
+      # Archive (zip) the app_data folder so that it contains the WebJob structure.
+      - name: Archive for WebJob deployment
         shell: pwsh
         run: |
           Compress-Archive -Path .\app_data\* -DestinationPath webjob.zip -Force
+          Write-Host "Created webjob.zip with the following contents (unzipped for verification):"
+          Expand-Archive -Path webjob.zip -DestinationPath unzipped -Force
+          Get-ChildItem -Path unzipped -Recurse
 
-      # Upload artifact for the deployment job
-      - name: Upload artifact
+      # Upload the zip artifact for deployment.
+      - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: webjob-artifact
           path: webjob.zip
 
-  # 3) Deploy to Azure Web App
+  # 3) Deploy the WebJob package to Azure Web App
   deploy:
     runs-on: windows-latest
     needs: [build, check-secrets]
@@ -108,7 +110,7 @@ jobs:
         with:
           name: webjob-artifact
 
-      # OIDC-based Azure login
+      # Login to Azure using OIDC.
       - name: Azure Login (OIDC)
         uses: azure/login@v1.5.0
         with:
@@ -116,12 +118,11 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Deploy the ZIP that contains app_data/jobs/continuous/MyConsoleJob
+      # Deploy the zip that contains the app_data folder (and thus your WebJob)
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           package: webjob.zip
 
-      # Optional: Since this is a console app, there's no default page to check.
-      # You could remove or skip the health check, or check that the WebJob started successfully.
+      # (Optional) No health check is necessary for a background WebJob.
