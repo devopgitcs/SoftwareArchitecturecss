@@ -17,7 +17,7 @@ on:
 jobs:
   # 1) Check that required secrets exist
   check-secrets:
-    runs-on: css-windows-runner1  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or use 'windows-latest'
     outputs:
       secrets-valid: ${{ steps.secrets-valid.outputs.isvalid }}
     steps:
@@ -36,9 +36,9 @@ jobs:
           }
         shell: pwsh
 
-  # 2) Build, package the .NET 4.7.2 app
+  # 2) Build and package the .NET 4.7.2 app
   build:
-    runs-on: css-windows-runner1  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or use 'windows-latest'
     needs: check-secrets
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
@@ -63,13 +63,19 @@ jobs:
       # - name: Run tests
       #   run: vstest.console.exe ".\Path\To\TestProject\bin\Release\TestProject.dll"
 
-      # Publish the output by copying build artifacts to a publish folder (single-line command)
+      # Publish the output by copying build artifacts to a publish folder
       - name: Publish
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release /p:OutputPath=.\publish /t:Build
 
+      # List publish folder contents for debugging (optional)
+      - name: List publish folder contents
+        run: dir .\publish
+        shell: pwsh
+
       # Zip the published output
       - name: Archive published output
-        run: Compress-Archive -Path .\publish\* -DestinationPath .\app.zip
+        run: Compress-Archive -Path publish\* -DestinationPath app.zip -Force
+        shell: pwsh
 
       # Upload artifact for deployment job
       - name: Upload artifact for deployment job
@@ -80,7 +86,7 @@ jobs:
 
   # 3) Deploy to Azure Web App
   deploy:
-    runs-on: css-windows-runner1  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or use 'windows-latest'
     needs: [build, check-secrets]
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
