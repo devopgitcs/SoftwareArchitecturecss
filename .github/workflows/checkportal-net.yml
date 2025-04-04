@@ -17,7 +17,7 @@ on:
 jobs:
   # 1) Check that required secrets exist
   check-secrets:
-    runs-on: css-windows-runner1  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or use 'windows-latest'
     outputs:
       secrets-valid: ${{ steps.secrets-valid.outputs.isvalid }}
     steps:
@@ -25,24 +25,26 @@ jobs:
 
       - id: secrets-valid
         env:
-          azure-webapp-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
-          if [ -z "$azure-webapp-name" ] || [ -z "$azure-subscription-id" ]; then
-            echo "isvalid=false" >> $GITHUB_OUTPUT
-          else
-            echo "isvalid=true" >> $GITHUB_OUTPUT
-          fi
+          if (-not $env:AZURE_WEBAPP_NAME -or -not $env:AZURE_SUBSCRIPTION_ID) {
+            "isvalid=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+          else {
+            "isvalid=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+        shell: pwsh
 
   # 2) Build, test, and package the .NET 4.7.2 app
   build:
-    runs-on: css-windows-runner1  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or use 'windows-latest'
     needs: check-secrets
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
       - uses: actions/checkout@v3
 
-      # Make sure MSBuild and NuGet are in the PATH
+      # Set up MSBuild and NuGet
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1
 
@@ -57,14 +59,13 @@ jobs:
       - name: Build
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
-      # If you have any test projects, run them via MSBuild or VSTest
+      # Run tests if you have any test projects (adjust as necessary)
       - name: Test
         run: |
           msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /t:Test /p:Configuration=Release
-          # OR:
-          # "vstest.console.exe" path\to\YourTestProject.dll
+          # Alternatively, use vstest.console.exe if applicable
 
-      # "Publish" the output by copying the build artifacts to a known folder
+      # Publish the output by copying build artifacts to a publish folder
       - name: Publish
         run: |
           msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln ^
@@ -77,7 +78,7 @@ jobs:
         run: |
           Compress-Archive -Path .\publish\* -DestinationPath .\app.zip
 
-      # Upload artifact so the next job can deploy it
+      # Upload artifact for deployment job
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -86,7 +87,7 @@ jobs:
 
   # 3) Deploy to Azure Web App
   deploy:
-    runs-on: css-windows-runner1  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or use 'windows-latest'
     needs: [build, check-secrets]
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
@@ -114,7 +115,5 @@ jobs:
       # Simple health check
       - name: Validate deployment
         run: |
-          # Adjust the domain/endpoint to match your app
           sleep 10
           curl -f https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net || exit 1
-
