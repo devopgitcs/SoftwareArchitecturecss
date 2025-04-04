@@ -1,0 +1,120 @@
+name: Deploy .NET 4.7.2 Console App to Azure (OIDC)
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+
+permissions:
+  contents: read
+  id-token: write
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  # 1) Check that required secrets exist
+  check-secrets:
+    runs-on: css-new-runner2  # or 'windows-latest'
+    outputs:
+      secrets-valid: ${{ steps.secrets-valid.outputs.isvalid }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - id: secrets-valid
+        env:
+          azure-webapp-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          if [ -z "$azure-webapp-name" ] || [ -z "$azure-subscription-id" ]; then
+            echo "isvalid=false" >> $GITHUB_OUTPUT
+          else
+            echo "isvalid=true" >> $GITHUB_OUTPUT
+          fi
+
+  # 2) Build, test, and package the .NET 4.7.2 app
+  build:
+    runs-on: css-new-runner2  # or 'windows-latest'
+    needs: check-secrets
+    if: needs.check-secrets.outputs.secrets-valid == 'true'
+    steps:
+      - uses: actions/checkout@v3
+
+      # Make sure MSBuild and NuGet are in the PATH
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1
+
+      # Restore NuGet packages for the solution
+      - name: Restore dependencies
+        run: nuget restore SoftwareArchitectureConsoleAppNet_4_7_2.sln
+
+      # Build the solution using MSBuild
+      - name: Build
+        run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
+
+      # If you have any test projects, run them via MSBuild or VSTest
+      - name: Test
+        run: |
+          msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /t:Test /p:Configuration=Release
+          # OR:
+          # "vstest.console.exe" path\to\YourTestProject.dll
+
+      # "Publish" the output by copying the build artifacts to a known folder
+      - name: Publish
+        run: |
+          msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln ^
+            /p:Configuration=Release ^
+            /p:OutputPath=.\publish ^
+            /t:Build
+
+      # Zip the published output
+      - name: Archive published output
+        run: |
+          Compress-Archive -Path .\publish\* -DestinationPath .\app.zip
+
+      # Upload artifact so the next job can deploy it
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-app
+          path: app.zip
+
+  # 3) Deploy to Azure Web App
+  deploy:
+    runs-on: css-new-runner2  # or 'windows-latest'
+    needs: [build, check-secrets]
+    if: needs.check-secrets.outputs.secrets-valid == 'true'
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dotnet-app
+
+      # OIDC-based Azure login
+      - name: Azure Login (OIDC)
+        uses: azure/login@v1.5.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Deploy to Azure Web App
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          package: app.zip
+
+      # Simple health check
+      - name: Validate deployment
+        run: |
+          # Adjust the domain/endpoint to match your app
+          sleep 10
+          curl -f https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net || exit 1
+
