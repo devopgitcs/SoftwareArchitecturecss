@@ -17,7 +17,7 @@ namespace Module2Lab4
                 if (String.IsNullOrEmpty(value))
                 {
                     throw new ArgumentException("FirstName" + REQUIRED_MSG);
-                    // Console.WriteLine("FirstName" + REQUIRED_MSG);
+                    Console.WriteLine("FirstName" + REQUIRED_MSG);
                 }
 
                 _FirstName = value;
@@ -34,7 +34,7 @@ namespace Module2Lab4
                 if (String.IsNullOrEmpty(value))
                 {
                     throw new ArgumentException("LastName" + REQUIRED_MSG);
-                    // Console.WriteLine("LastName" + REQUIRED_MSG);
+                     Console.WriteLine("LastName" + REQUIRED_MSG);
                 }
 
                 _LastName = value;
@@ -52,7 +52,7 @@ namespace Module2Lab4
                 {
                     throw new ArgumentException("Ssn" + REQUIRED_MSG +
                                                 "and must be between 9 and 11 characters (if hyphens are used)");
-                    // Console.WriteLine("Ssn" + REQUIRED_MSG);
+                     Console.WriteLine("Ssn" + REQUIRED_MSG);
                 }
 
                 _Ssn = value;
