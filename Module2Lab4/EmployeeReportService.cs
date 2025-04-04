@@ -14,7 +14,7 @@ namespace Module2Lab4
 
         public void OutPutReport()
         {
-            MessageBox.Show(Report,"Employee Report Service");
+            Console.WriteLine(Report,"Employee Report Service");
         }
 
         public void ClearReport()
