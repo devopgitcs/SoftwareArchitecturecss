@@ -122,5 +122,5 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}-dvc5bjhab2dhfgh9.eastus-01.azurewebsites.net
           package: webjob.zip
