@@ -17,7 +17,7 @@ on:
 jobs:
   # 1) Check that required secrets exist
   check-secrets:
-    runs-on: css-new-runner2  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or 'windows-latest'
     outputs:
       secrets-valid: ${{ steps.secrets-valid.outputs.isvalid }}
     steps:
@@ -36,7 +36,7 @@ jobs:
 
   # 2) Build, test, and package the .NET 4.7.2 app
   build:
-    runs-on: css-new-runner2  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or 'windows-latest'
     needs: check-secrets
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
@@ -86,7 +86,7 @@ jobs:
 
   # 3) Deploy to Azure Web App
   deploy:
-    runs-on: css-new-runner2  # or 'windows-latest'
+    runs-on: css-windows-runner1  # or 'windows-latest'
     needs: [build, check-secrets]
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
