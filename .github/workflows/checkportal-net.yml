@@ -17,7 +17,7 @@ on:
 jobs:
   # 1) Check that required secrets exist
   check-secrets:
-    runs-on: css-windows-runner1
+    runs-on: css-windows-runner1  # or 'windows-latest'
     outputs:
       secrets-valid: ${{ steps.secrets-valid.outputs.isvalid }}
     steps:
@@ -37,7 +37,7 @@ jobs:
 
   # 2) Build and package the .NET 4.7.2 app
   build:
-    runs-on: css-windows-runner1
+    runs-on: css-windows-runner1  # or 'windows-latest'
     needs: check-secrets
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
@@ -54,15 +54,14 @@ jobs:
       - name: Restore dependencies
         run: nuget restore SoftwareArchitectureConsoleAppNet_4_7_2.sln
 
-      # Build the solution using MSBuild (outputs will be in each project’s default folder)
+      # Build the solution using MSBuild (outputs will be in each project's default output folder)
       - name: Build solution
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
-      # Create a publish folder by searching for a Release folder with an executable.
+      # Create a publish folder by searching for an executable in a Release folder and copying its contents.
       - name: Create publish folder and copy output
         run: |
           New-Item -ItemType Directory -Path publish -Force
-          # Search recursively for an *.exe in a Release folder.
           $exePath = Get-ChildItem -Path . -Recurse -Filter "*.exe" | Where-Object { $_.FullName -match "Release" } | Select-Object -First 1
           if ($null -eq $exePath) {
             Write-Error "Could not find any executable in a Release folder."
@@ -93,7 +92,7 @@ jobs:
 
   # 3) Deploy to Azure Web App
   deploy:
-    runs-on: css-windows-runner1
+    runs-on: css-windows-runner1  # or 'windows-latest'
     needs: [build, check-secrets]
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
@@ -118,8 +117,20 @@ jobs:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           package: app.zip
 
-      # Simple health check
+      # Simple health check using PowerShell
       - name: Validate deployment
+        shell: pwsh
         run: |
-          sleep 10
-          curl -f https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net || exit 1
+          Start-Sleep -Seconds 10
+          try {
+            $response = Invoke-WebRequest -Uri "https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net" -UseBasicParsing
+            if ($response.StatusCode -ne 200) {
+              Write-Error "Deployment validation failed with status code: $($response.StatusCode)"
+              exit 1
+            } else {
+              Write-Host "Deployment validated successfully."
+            }
+          } catch {
+            Write-Error "Deployment validation failed: $_"
+            exit 1
+          }
