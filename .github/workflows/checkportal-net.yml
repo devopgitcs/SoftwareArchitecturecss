@@ -59,7 +59,6 @@ jobs:
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
       # Prepare the folder structure for the WebJob.
-      # This step creates "app_data/jobs/continuous/MyConsoleJob" and copies the console app's Release output into it.
       - name: Prepare WebJob folder structure
         shell: pwsh
         run: |
@@ -67,10 +66,10 @@ jobs:
           if (Test-Path -Path ".\app_data") {
             Remove-Item -Path ".\app_data" -Recurse -Force
           }
-          # Create the continuous WebJob folder.
+          # Create the continuous WebJob folder
           New-Item -ItemType Directory -Force -Path "app_data\jobs\continuous\MyConsoleJob"
 
-          # Set the source folder based on your build output.
+          # Adjust this path if your project outputs elsewhere
           $sourcePath = ".\Module2Lab4\bin\Release\"
           if (-Not (Test-Path $sourcePath)) {
             Write-Error "Source path $sourcePath not found."
@@ -79,7 +78,7 @@ jobs:
           Write-Host "Copying files from $sourcePath to app_data\jobs\continuous\MyConsoleJob"
           Copy-Item -Path "$sourcePath*" -Destination "app_data\jobs\continuous\MyConsoleJob" -Recurse -Force
 
-          # Debug: List the folder structure of the WebJob folder
+          # Debug: List the folder structure
           Write-Host "Contents of app_data\jobs\continuous\MyConsoleJob:"
           Get-ChildItem -Path "app_data\jobs\continuous\MyConsoleJob" -Recurse
 
@@ -88,7 +87,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path .\app_data\* -DestinationPath webjob.zip -Force
-          Write-Host "Created webjob.zip with the following contents (unzipped for verification):"
+          Write-Host "Created webjob.zip. Unzipping for verification:"
           Expand-Archive -Path webjob.zip -DestinationPath unzipped -Force
           Get-ChildItem -Path unzipped -Recurse
 
@@ -110,7 +109,7 @@ jobs:
         with:
           name: webjob-artifact
 
-      # Login to Azure using OIDC.
+      # Login to Azure using OIDC
       - name: Azure Login (OIDC)
         uses: azure/login@v1.5.0
         with:
@@ -118,9 +117,12 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Deploy the ZIP that contains the app_data folder (and thus your WebJob)
+      # Deploy the zip that contains the app_data folder (and thus your WebJob)
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           package: webjob.zip
+          enable-oryx-build: false  # Ensures the package is just unzipped
+
+      # No health check for a background WebJob
