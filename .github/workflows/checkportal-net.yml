@@ -56,23 +56,23 @@ jobs:
         run: nuget restore SoftwareArchitectureConsoleAppNet_4_7_2.sln
 
       # Build the solution using MSBuild
-      - name: Build
+      - name: Build solution
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
-      # (Optional) Run tests if applicable
-      # - name: Run tests
-      #   run: vstest.console.exe ".\Path\To\TestProject\bin\Release\TestProject.dll"
+      # Create a publish folder and copy the built files from the Release output folder.
+      # Adjust the source path if your project's output location is different.
+      - name: Create publish folder and copy output
+        run: |
+          New-Item -ItemType Directory -Path publish -Force
+          Copy-Item -Path ".\SoftwareArchitectureConsoleAppNet_4_7_2\bin\Release\*" -Destination publish -Recurse
+        shell: pwsh
 
-      # Publish the output by copying build artifacts to a publish folder
-      - name: Publish
-        run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release /p:OutputPath=.\publish /t:Build
-
-      # List publish folder contents for debugging (optional)
+      # (Optional) List publish folder contents for debugging
       - name: List publish folder contents
         run: dir .\publish
         shell: pwsh
 
-      # Zip the published output
+      # Archive (zip) the published output
       - name: Archive published output
         run: Compress-Archive -Path publish\* -DestinationPath app.zip -Force
         shell: pwsh
