@@ -17,7 +17,7 @@ on:
 jobs:
   # 1) Check that required secrets exist
   check-secrets:
-    runs-on: css-windows-runner1  # or use 'windows-latest'
+    runs-on: css-windows-runner1
     outputs:
       secrets-valid: ${{ steps.secrets-valid.outputs.isvalid }}
     steps:
@@ -30,15 +30,14 @@ jobs:
         run: |
           if (-not $env:AZURE_WEBAPP_NAME -or -not $env:AZURE_SUBSCRIPTION_ID) {
             "isvalid=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          }
-          else {
+          } else {
             "isvalid=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
         shell: pwsh
 
   # 2) Build and package the .NET 4.7.2 app
   build:
-    runs-on: css-windows-runner1  # or use 'windows-latest'
+    runs-on: css-windows-runner1
     needs: check-secrets
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
@@ -55,16 +54,24 @@ jobs:
       - name: Restore dependencies
         run: nuget restore SoftwareArchitectureConsoleAppNet_4_7_2.sln
 
-      # Build the solution using MSBuild
+      # Build the solution using MSBuild (outputs will be in each project’s default folder)
       - name: Build solution
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
-      # Create a publish folder and copy the built files from the Release output folder.
-      # Adjust the source path if your project's output location is different.
+      # Create a publish folder by searching for a Release folder with an executable.
       - name: Create publish folder and copy output
         run: |
           New-Item -ItemType Directory -Path publish -Force
-          Copy-Item -Path ".\SoftwareArchitectureConsoleAppNet_4_7_2\bin\Release\*" -Destination publish -Recurse
+          # Search recursively for an *.exe in a Release folder.
+          $exePath = Get-ChildItem -Path . -Recurse -Filter "*.exe" | Where-Object { $_.FullName -match "Release" } | Select-Object -First 1
+          if ($null -eq $exePath) {
+            Write-Error "Could not find any executable in a Release folder."
+            exit 1
+          } else {
+            $outputFolder = Split-Path $exePath.FullName -Parent
+            Write-Host "Found output folder: $outputFolder"
+            Copy-Item -Path "$outputFolder\*" -Destination publish -Recurse -Force
+          }
         shell: pwsh
 
       # (Optional) List publish folder contents for debugging
@@ -86,7 +93,7 @@ jobs:
 
   # 3) Deploy to Azure Web App
   deploy:
-    runs-on: css-windows-runner1  # or use 'windows-latest'
+    runs-on: css-windows-runner1
     needs: [build, check-secrets]
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
