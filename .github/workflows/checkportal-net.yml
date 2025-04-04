@@ -59,24 +59,17 @@ jobs:
       - name: Build
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
-      # Removed the Test step because no "Test" target exists.
-      # If you have test assemblies, you can run them with vstest.console.exe. For example:
+      # (Optional) Run tests if applicable
       # - name: Run tests
-      #   run: |
-      #     vstest.console.exe ".\Path\To\TestProject\bin\Release\TestProject.dll"
+      #   run: vstest.console.exe ".\Path\To\TestProject\bin\Release\TestProject.dll"
 
-      # Publish the output by copying build artifacts to a publish folder
+      # Publish the output by copying build artifacts to a publish folder (single-line command)
       - name: Publish
-        run: |
-          msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln ^
-            /p:Configuration=Release ^
-            /p:OutputPath=.\publish ^
-            /t:Build
+        run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release /p:OutputPath=.\publish /t:Build
 
       # Zip the published output
       - name: Archive published output
-        run: |
-          Compress-Archive -Path .\publish\* -DestinationPath .\app.zip
+        run: Compress-Archive -Path .\publish\* -DestinationPath .\app.zip
 
       # Upload artifact for deployment job
       - name: Upload artifact for deployment job
