@@ -17,7 +17,7 @@ on:
 jobs:
   # 1) Check that required secrets exist
   check-secrets:
-    runs-on: css-windows-runner1  # or use 'windows-latest'
+    runs-on: css-windows-runner1  # or 'windows-latest'
     outputs:
       secrets-valid: ${{ steps.secrets-valid.outputs.isvalid }}
     steps:
@@ -36,9 +36,9 @@ jobs:
           }
         shell: pwsh
 
-  # 2) Build, test, and package the .NET 4.7.2 app
+  # 2) Build, package the .NET 4.7.2 app
   build:
-    runs-on: css-windows-runner1  # or use 'windows-latest'
+    runs-on: css-windows-runner1  # or 'windows-latest'
     needs: check-secrets
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
@@ -59,11 +59,11 @@ jobs:
       - name: Build
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
-      # Run tests if you have any test projects (adjust as necessary)
-      - name: Test
-        run: |
-          msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /t:Test /p:Configuration=Release
-          # Alternatively, use vstest.console.exe if applicable
+      # Removed the Test step because no "Test" target exists.
+      # If you have test assemblies, you can run them with vstest.console.exe. For example:
+      # - name: Run tests
+      #   run: |
+      #     vstest.console.exe ".\Path\To\TestProject\bin\Release\TestProject.dll"
 
       # Publish the output by copying build artifacts to a publish folder
       - name: Publish
@@ -87,7 +87,7 @@ jobs:
 
   # 3) Deploy to Azure Web App
   deploy:
-    runs-on: css-windows-runner1  # or use 'windows-latest'
+    runs-on: css-windows-runner1  # or 'windows-latest'
     needs: [build, check-secrets]
     if: needs.check-secrets.outputs.secrets-valid == 'true'
     steps:
