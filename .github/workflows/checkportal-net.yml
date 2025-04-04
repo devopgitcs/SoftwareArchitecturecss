@@ -59,7 +59,7 @@ jobs:
         run: msbuild SoftwareArchitectureConsoleAppNet_4_7_2.sln /p:Configuration=Release
 
       # Prepare the folder structure for the WebJob.
-      # This step creates a folder "app_data/jobs/continuous/MyConsoleJob" and copies the console app's Release output into it.
+      # This step creates "app_data/jobs/continuous/MyConsoleJob" and copies the console app's Release output into it.
       - name: Prepare WebJob folder structure
         shell: pwsh
         run: |
@@ -67,11 +67,11 @@ jobs:
           if (Test-Path -Path ".\app_data") {
             Remove-Item -Path ".\app_data" -Recurse -Force
           }
-          # Create the continuous WebJob folder
+          # Create the continuous WebJob folder.
           New-Item -ItemType Directory -Force -Path "app_data\jobs\continuous\MyConsoleJob"
 
-          # Set the source folder (adjust this path if needed)
-          $sourcePath = ".\SoftwareArchitectureConsoleAppNet_4_7_2\bin\Release\"
+          # Set the source folder based on your build output.
+          $sourcePath = ".\Module2Lab4\bin\Release\"
           if (-Not (Test-Path $sourcePath)) {
             Write-Error "Source path $sourcePath not found."
             exit 1
@@ -118,11 +118,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Deploy the zip that contains the app_data folder (and thus your WebJob)
+      # Deploy the ZIP that contains the app_data folder (and thus your WebJob)
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           package: webjob.zip
-
-      # (Optional) No health check is necessary for a background WebJob.
